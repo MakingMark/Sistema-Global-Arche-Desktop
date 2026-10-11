@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Instala Arche Escritorio · Shaker en esta PC bajando la última versión desde
+# GitHub. herramientas/publicar.js lo sube como «instalar» al repositorio de
+# actualizaciones, así que en la PC del cliente basta con:
+#
+#   curl -fsSL https://raw.githubusercontent.com/MakingMark/Sistema-Global-Arche-Desktop/master/instalar | bash
+#
+# Con una llave de Tailscale (para no abrir enlaces):
+#   curl -fsSL …/instalar | bash -s -- --tailscale-clave tskey-auth-XXXX
+#
+# Qué hace: baja el manifiesto y el paquete, comprueba que el paquete es
+# exactamente el del manifiesto (huella sha256) y corre escritorio/instalar.sh,
+# que además verifica la FIRMA de Arche en cuanto tiene Node instalado.
+set -euo pipefail
+BASE="https://raw.githubusercontent.com/MakingMark/Sistema-Global-Arche-Desktop/master/shaker"
+falla() { printf '\n\033[1;31m✖ %s\033[0m\n' "$*"; exit 1; }
+command -v curl >/dev/null || falla "Falta curl: sudo apt install curl"
+command -v python3 >/dev/null || falla "Falta python3: sudo apt install python3"
+
+DIR="$HOME/arche-instalador"
+rm -rf "$DIR"; mkdir -p "$DIR"; cd "$DIR"
+printf '\n\033[1;34m▶ Bajando la última versión de Arche…\033[0m\n'
+curl -fsSL "$BASE/manifest.json" -o manifest.json || falla "No se pudo bajar el manifiesto (¿hay internet?)"
+read -r VERSION ARCHIVO SHA < <(python3 - <<'PY'
+import json, base64
+m = json.load(open('manifest.json'))
+d = m['datos']; d += '=' * (-len(d) % 4)
+info = json.loads(base64.urlsafe_b64decode(d))
+print(info['version'], info['archivo'], info['sha256'])
+PY
+)
+curl -fSL --progress-bar "$BASE/$ARCHIVO" -o "$ARCHIVO" || falla "No se pudo bajar el paquete"
+echo "$SHA  $ARCHIVO" | sha256sum -c --quiet || falla "El paquete descargado está dañado o alterado. No se instala."
+tar -xzf "$ARCHIVO"
+printf '  \033[32m✔\033[0m Versión %s descargada\n' "$VERSION"
+
+# El instalador pregunta cosas (la clave de la PC): se le da el teclado aunque
+# este script haya llegado por «curl | bash».
+cd "$DIR/arche-shaker-$VERSION/escritorio"
+exec bash instalar.sh --manifest "$DIR/manifest.json" --paquete "$DIR/$ARCHIVO" "$@" </dev/tty
