@@ -3,9 +3,10 @@
 # GitHub. herramientas/publicar.js lo sube como «instalar» al repositorio de
 # actualizaciones, así que en la PC del cliente basta con:
 #
-#   wget -qO- https://raw.githubusercontent.com/MakingMark/Sistema-Global-Arche-Desktop/master/instalar | bash
-#   (o con curl: curl -fsSL …/instalar | bash — Zorin/Ubuntu a veces no trae curl,
-#    pero wget sí viene siempre; este script usa el que haya)
+#   wget https://raw.githubusercontent.com/MakingMark/Sistema-Global-Arche-Desktop/master/instalar
+#   bash instalar
+#   (dos comandos sin opciones, a prueba de errores al escribirlos; wget viene
+#    siempre en Zorin/Ubuntu, curl a veces no — este script usa el que haya)
 #
 # Con una llave de Tailscale (para no abrir enlaces):
 #   curl -fsSL …/instalar | bash -s -- --tailscale-clave tskey-auth-XXXX
@@ -18,7 +19,7 @@ BASE="https://raw.githubusercontent.com/MakingMark/Sistema-Global-Arche-Desktop/
 falla() { printf '\n\033[1;31m✖ %s\033[0m\n' "$*"; exit 1; }
 # Para bajar archivos sirve curl o wget (wget viene siempre en Zorin/Ubuntu).
 if command -v curl >/dev/null; then bajar() { curl -fsSL "$1" -o "$2"; }; bajar_largo() { curl -fSL --progress-bar "$1" -o "$2"; }
-elif command -v wget >/dev/null; then bajar() { wget -q "$1" -O "$2"; }; bajar_largo() { wget -q --show-progress "$1" -O "$2"; }
+elif command -v wget >/dev/null; then bajar() { wget -q "$1" -O "$2"; }; bajar_largo() { echo "  (bajando, puede tardar un momento…)"; wget -q "$1" -O "$2"; }
 else falla "No hay curl ni wget. Corre: sudo apt install -y wget"; fi
 command -v python3 >/dev/null || falla "Falta python3: sudo apt install -y python3"
 command -v sha256sum >/dev/null || falla "Falta sha256sum: sudo apt install -y coreutils"
