@@ -38,7 +38,7 @@ PY
 )
 bajar_largo "$BASE/$ARCHIVO" "$ARCHIVO" || falla "No se pudo bajar el paquete"
 [ "$(sha256sum "$ARCHIVO" | cut -d' ' -f1)" = "$SHA" ] || falla "El paquete descargado está dañado o alterado. No se instala."
-tar -xzf "$ARCHIVO"
+tar --warning=no-unknown-keyword -xzf "$ARCHIVO" 2>/dev/null || tar -xzf "$ARCHIVO"
 printf '  \033[32m✔\033[0m Versión %s descargada\n' "$VERSION"
 
 # El instalador pregunta cosas (la clave de la PC): se le da el teclado aunque
