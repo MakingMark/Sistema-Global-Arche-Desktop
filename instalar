@@ -3,7 +3,9 @@
 # GitHub. herramientas/publicar.js lo sube como «instalar» al repositorio de
 # actualizaciones, así que en la PC del cliente basta con:
 #
-#   curl -fsSL https://raw.githubusercontent.com/MakingMark/Sistema-Global-Arche-Desktop/master/instalar | bash
+#   wget -qO- https://raw.githubusercontent.com/MakingMark/Sistema-Global-Arche-Desktop/master/instalar | bash
+#   (o con curl: curl -fsSL …/instalar | bash — Zorin/Ubuntu a veces no trae curl,
+#    pero wget sí viene siempre; este script usa el que haya)
 #
 # Con una llave de Tailscale (para no abrir enlaces):
 #   curl -fsSL …/instalar | bash -s -- --tailscale-clave tskey-auth-XXXX
@@ -14,13 +16,17 @@
 set -euo pipefail
 BASE="https://raw.githubusercontent.com/MakingMark/Sistema-Global-Arche-Desktop/master/shaker"
 falla() { printf '\n\033[1;31m✖ %s\033[0m\n' "$*"; exit 1; }
-command -v curl >/dev/null || falla "Falta curl: sudo apt install curl"
-command -v python3 >/dev/null || falla "Falta python3: sudo apt install python3"
+# Para bajar archivos sirve curl o wget (wget viene siempre en Zorin/Ubuntu).
+if command -v curl >/dev/null; then bajar() { curl -fsSL "$1" -o "$2"; }; bajar_largo() { curl -fSL --progress-bar "$1" -o "$2"; }
+elif command -v wget >/dev/null; then bajar() { wget -q "$1" -O "$2"; }; bajar_largo() { wget -q --show-progress "$1" -O "$2"; }
+else falla "No hay curl ni wget. Corre: sudo apt install -y wget"; fi
+command -v python3 >/dev/null || falla "Falta python3: sudo apt install -y python3"
+command -v sha256sum >/dev/null || falla "Falta sha256sum: sudo apt install -y coreutils"
 
 DIR="$HOME/arche-instalador"
 rm -rf "$DIR"; mkdir -p "$DIR"; cd "$DIR"
 printf '\n\033[1;34m▶ Bajando la última versión de Arche…\033[0m\n'
-curl -fsSL "$BASE/manifest.json" -o manifest.json || falla "No se pudo bajar el manifiesto (¿hay internet?)"
+bajar "$BASE/manifest.json" manifest.json || falla "No se pudo bajar el manifiesto (¿hay internet?)"
 read -r VERSION ARCHIVO SHA < <(python3 - <<'PY'
 import json, base64
 m = json.load(open('manifest.json'))
@@ -29,8 +35,8 @@ info = json.loads(base64.urlsafe_b64decode(d))
 print(info['version'], info['archivo'], info['sha256'])
 PY
 )
-curl -fSL --progress-bar "$BASE/$ARCHIVO" -o "$ARCHIVO" || falla "No se pudo bajar el paquete"
-echo "$SHA  $ARCHIVO" | sha256sum -c --quiet || falla "El paquete descargado está dañado o alterado. No se instala."
+bajar_largo "$BASE/$ARCHIVO" "$ARCHIVO" || falla "No se pudo bajar el paquete"
+[ "$(sha256sum "$ARCHIVO" | cut -d' ' -f1)" = "$SHA" ] || falla "El paquete descargado está dañado o alterado. No se instala."
 tar -xzf "$ARCHIVO"
 printf '  \033[32m✔\033[0m Versión %s descargada\n' "$VERSION"
 
